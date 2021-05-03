@@ -45,7 +45,6 @@ begin
 
       Memo1.Clear;
       Memo1.Lines.Add('Banco: ' + LerOFX.BankID);
-      Memo1.Lines.Add('Agencia: ' + LerOFX.BranchID);
       Memo1.Lines.Add('Conta: ' + LerOFX.AccountID);
       Memo1.Lines.Add('----------------');
 

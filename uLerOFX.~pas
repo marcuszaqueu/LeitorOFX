@@ -6,245 +6,232 @@ uses classes, SysUtils;
 
 type
   TOFXItem = class
-    MovTipo : String;
-    MovData : TDateTime;
-    Valor : String;
-    ID : String;
-    Documento : String;
-    Descricao : String;
-  end.
+    MovType: String;
+    MovDate: TDateTime;
+    Value: String;
+    ID: string;
+    Document: string;
+    Description: string;
+  end;
 
-  TOFXLeitor = class (TComponent)
+  TLeitorOFX = class(TComponent)
   public
-    BankID : String;
-    BranchID : String;
-    AccountID : String;
-    AccountType : String;
-    DateStart : String;
-    DateEnd : String;
-    FinalBalance : String;
-    constructor Create (AOwner : TComponent); override;
-    destructor Destroy: override;
-    function Import boolean;
-    function Get(xIndex : integer) : TOFXItem;
-    function Count : integer:
-
+    BankID: String;
+    BranchID: string;
+    AccountID: string;
+    AccountType: string;
+    DateStart: string;
+    DateEnd: string;
+    FinalBalance: String;
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+    function Import: boolean;
+    function Get(iIndex: integer): TOFXItem;
+    function Count: integer;
   private
-    FOFXFile : String;
-    FListItems : TList;
+    FOFXFile: string;
+    FListItems: TList;
     procedure Clear;
-    procedure Delete (xIndex : integer);
-    function Add : TOFXItem;
-    function InfLine(sLine: String) : String;
-    function FindString(sSubString, sString : String) : boolean;
+    procedure Delete(iIndex: integer);
+    function Add: TOFXItem;
+    function InfLine(sLine: string): string;
+    function FindString(sSubString, sString: string): boolean;
   protected
   published
-    property OFXFile : String Read FOFXFile write FOFXFile;
+    property OFXFile: string read FOFXFile write FOFXFile;
   end;
 
 procedure Register;
 
 implementation
 
-constructor TOFXReader.Create(AOwner : TComponent);
+constructor TLeitorOFX.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  FListItems := Tlist.Create;
+  FListItems := TList.Create;
 end;
 
-destructor TOFXReader.Destroy;
+destructor TLeitorOFX.Destroy;
 begin
   Clear;
   FListItems.Free;
-  Inherited Destroy;
+  inherited Destroy;
 end;
 
-procedure TOFXReader.Delete(xIndex : Integer);
+procedure TLeitorOFX.Delete(iIndex: integer);
 begin
-  TOFXItem(FListItems.Items[xIndex]).Free;
-  fListItems.Delete(xIndex);
+  TOFXItem(FListItems.Items[iIndex]).Free;
+  FListItems.Delete(iIndex);
 end;
 
-procedure TOFXReader.Clear;
+procedure TLeitorOFX.Clear;
 begin
   while FListItems.Count > 0 do
     Delete(0);
   FListItems.Clear;
 end;
 
-function TOFXReader.Count : Integer;
+function TLeitorOFX.Count: integer;
 begin
-  Result : FListItems.Count;
+  Result := FListItems.Count;
 end;
 
-function TOFXReader.Get(xIndex : Integer) : TOFXItem;
+function TLeitorOFX.Get(iIndex: integer): TOFXItem;
 begin
-  Result := TOFXItem(FListItems.Items[xIndex]):
+  Result := TOFXItem(FListItems.Items[iIndex]);
 end;
 
-function TOFXReader.Import : boolean;
+function TLeitorOFX.Import: boolean;
 var
-  oFile : TStringList;
-  i : Integer;
-  bOFX : boolean;
-  oItem : TOFXItem;
-  sLine : String;
+  oFile: TStringList;
+  i: integer;
+  bOFX: boolean;
+  oItem: TOFXItem;
+  sLine: string;
 begin
-    Clear;
-    DateStart := '';
-    DateEnd := '';
-    bOFX := false;
+  Clear;
+  DateStart := '';
+  DateEnd := '';
+  bOFX := false;
+  if not FileExists(FOFXFile) then
+    raise Exception.Create('Arquivo não encontrado!');
+  oFile := TStringList.Create;
+  try
+    oFile.LoadFromFile(FOFXFile);
+    i := 0;
 
-    if not FileExists(FOFXFile) then
-      raise Exception.Create('Arquivo não encontrado!');
-    oFile := TStringList.Create;
+    while i < oFile.Count do
+    begin
+      sLine := oFile.Strings[i];
+      if FindString('<OFX>', sLine) or FindString('<OFC>', sLine) then
+        bOFX := true;
 
-    try
-      oFile.LoadFromFile(FOFXFile);
-      i :=0;
-
-      while i < oFile.Count do
+      if bOFX then
       begin
+        // banco
+        if FindString('<BANKID>', sLine) then
+          BankID := InfLine(sLine);
 
-        sLine := oFile.Strings[i];
-        if FindString('<OFX>', sLine) or FindString('<OFC>', sLine) then
-          bOFX := true;
+        // agencia
+        if FindString('<BRANCHID>', sLine) then
+          BranchID := InfLine(sLine);
 
-        if bOFX then
+        // conta
+        if FindString('<ACCTID>', sLine) then
+          AccountID := InfLine(sLine);
+
+        // tipo da conta
+        if FindString('<ACCTTYPE>', sLine) then
+          AccountType := InfLine(sLine);
+
+        // data
+        if FindString('<DTSTART>', sLine) then
         begin
+          if Trim(sLine) <> '' then
+            DateStart :=
+              DateToStr(EncodeDate(StrToIntDef(copy(InfLine(sLine), 1, 4), 0),
+              StrToIntDef(copy(InfLine(sLine), 5, 2), 0),
+              StrToIntDef(copy(InfLine(sLine), 7, 2), 0)));
+        end;
+        if FindString('<DTEND>', sLine) then
+        begin
+          if Trim(sLine) <> '' then
+            DateEnd :=
+              DateToStr(EncodeDate(StrToIntDef(copy(InfLine(sLine), 1, 4), 0),
+              StrToIntDef(copy(InfLine(sLine), 5, 2), 0),
+              StrToIntDef(copy(InfLine(sLine), 7, 2), 0)));
+        end;
 
-          if FindString('<BANKID>', sLine) then //Identificação do banco
-            BankID := InfLine(sLine);
+        // Final
+        if FindString('<LEDGER>', sLine) or FindString('<BALAMT>', sLine) then
+          FinalBalance := InfLine(sLine);
 
-          if FindString('<BRANCHID>'), sLine) then //Agencia
-            BranchID := InfLine(sLine);
+        // movimento
+        if FindString('<STMTTRN>', sLine) then
+        begin
+          oItem := Add;
+          while not FindString('</STMTTRN>', sLine) do
+          begin
+            Inc(i);
+            sLine := oFile.Strings[i];
 
-          if FindString('<ACCTID>'), sLine) then //Conta
-            AccountID := InfLine(sLine);
-
-          if FindString('<ACCTTYPE>', sLine) then //Tipo Conta
-            AccountType := InfLine(sLine);
-
-          if FindString('<DTSTART>', sLine) then //Data Inicio
-            begin
-
-              if trim(sLine) <> '' then
-                DateStart :=
-                DateToStr(EncodeDate(StrToInfDef(copy(InfLine(sLine), 1, 4), 0),
-                StrToIntDef(Copy(InfLine(sLine), 5, 2), 0),
-                StrToIntDef(Copy(InfLine(sLine), 7, 2), 0)));
-
+          if FindString('<TRNTYPE>', sLine) then
+          begin
+             if (InfLine(sLine) = '0') or (InfLine(sLine) = 'CREDIT')
+             OR (InfLine(sLine) = 'DEP') then
+                oItem.MovType := 'C'
+             else
+             if (InfLine(sLine) = '1') or (InfLine(sLine) = 'DEBIT')
+             OR (InfLine(sLine) = 'XFER') then
+                oItem.MovType := 'D'
+              else
+                oItem.MovType := 'OTHER';
             end;
 
-          if FindString('<DTEND>', sLine) then //Data Fim
-            begin
+            if FindString('<DTPOSTED>', sLine) then
+              oItem.MovDate :=
+                EncodeDate(StrToIntDef(copy(InfLine(sLine), 1, 4), 0),
+                StrToIntDef(copy(InfLine(sLine), 5, 2), 0),
+                StrToIntDef(copy(InfLine(sLine), 7, 2), 0));
 
-              if trim(sLine) <> '' then
-                DateEND :=
-                DateToStr(EncodeDate(StrToInfDef(copy(InfLine(sLine), 1, 4), 0),
-                StrToIntDef(Copy(InfLine(sLine), 5, 2), 0),
-                StrToIntDef(Copy(InfLine(sLine), 7, 2), 0)));
+            if FindString('<FITID>', sLine) then
+              oItem.ID := InfLine(sLine);
 
-            end;
+            if FindString('<CHKNUM>', sLine) or FindString('<CHECKNUM>', sLine) then
+              oItem.Document := InfLine(sLine);
 
-          if FindString('<LEDGER>',sLine) or FindString('<BALAMT>',sLine) then
-            FinalBalance := InfLine(sLine);
+            if FindString('<MEMO>', sLine) then
+              oItem.Description := InfLine(sLine);
 
-          //Movimentação
-          if FindString('<STMTTRN>', sLine) then
-            begin
-
-              oItem := Add;
-              while not FindString('</STMTTRN>', sLine) do
-              begin
-
-                Inc(i);
-                sLine := oFile.Strings[i];
-
-                if FindString('<TRNTYPE>', sLine) then
-                  begin
-
-                    if (InfLine(sLine) = '0') or (InfLine(sLine) = 'CREDIT')
-                    or (InfLine(sLine) = 'DEP') then
-                      oItem.MovTipo := 'C'
-
-                    else if (InfLine(sLine) = '1') or (InfLine(sLine) = 'DEBIT')
-                    or (InfLine9sLine) = 'XFER') then
-                      oItem.MovTipo := 'D'
-
-                    else
-                      oItem.MovTipo := 'OTHER';
-
-                  end;
-
-                  if FindString('<DTPOSTED>',sLine) then
-                    oItem.MovData := EncodeDate(StrToIntDef(copy(InfLine(sLine), 1,4), 0),
-                      StrToIntDef(copy(InfLine(sLine), 5, 2), 0),
-                      StrToIntDef(copy(InfLine(sLine), 7, 2), 0));
-
-                  if FindString('<FITID>',sLine) then
-                    oItem.ID := InfLine(sLine);
-
-                  if FindString('<CHKNUM>', sLine) or (FindString('<CHECKNUM>', sLine) then
-                    oItem.Documento := InfLine(sLine);
-
-                  if FindString('<MEMO>', sLine) then
-                    oItem.Descricao := InfLine(sLine);
-
-                  if FindString('<TRNAMT>', sLine) then
-                    oItem.Valor := InfLine(sLine);
-
-              end;
-
-            end;
-
+            if FindString('<TRNAMT>', sLine) then
+              oItem.Value := InfLine(sLine);
           end;
-          Inc(i);
+        end;
 
       end;
-      Result := bOFX
-
-    finally
-      oFile.Free;
+      Inc(i);
     end;
+    Result := bOFX;
+  finally
+    oFile.Free;
+  end;
 end;
 
-function TOFXReader.InfLine(sLine : String) : String;
+function TLeitorOFX.InfLine(sLine: string): string;
 var
-iTemp : Integer;
+  iTemp: integer;
 begin
   Result := '';
   sLine := Trim(sLine);
-  if FindString ('>', sLine) then
-
+  if FindString('>', sLine) then
   begin
     sLine := Trim(sLine);
     iTemp := Pos('>', sLine);
     if Pos('</', sLine) > 0 then
-      Result := copy(sLine, iTemp +1, Pos('</', sLine) - iTemp -')
+      Result := copy(sLine, iTemp + 1, Pos('</', sLine) - iTemp - 1)
     else
-      Result := coppy(sLine, iTemp +1, length(sLine));
-  end;
 
+      Result := copy(sLine, iTemp + 1, length(sLine));
+  end;
 end;
 
-function TOFXReader.Add : TOFXItem;
+function TLeitorOFX.Add: TOFXItem;
 var
-  oItem : TOFXItem;
+  oItem: TOFXItem;
 begin
   oItem := TOFXItem.Create;
   FListItems.Add(oItem);
   Result := oItem;
 end;
 
-function TOFXReader.FindString(sSubString, sString: string): boolean;
+function TLeitorOFX.FindString(sSubString, sString: string): boolean;
 begin
   Result := Pos(UpperCase(sSubString), UpperCase(sString)) > 0;
 end;
 
 procedure Register;
 begin
-  RegisterComponents('OFXReader', [TOFXReader]);
+  RegisterComponents('LeitorOFX', [TLeitorOFX]);
 end;
 
 end.

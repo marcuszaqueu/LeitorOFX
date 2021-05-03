@@ -112,10 +112,6 @@ begin
         if FindString('<BANKID>', sLine) then
           BankID := InfLine(sLine);
 
-        // agencia
-        if FindString('<BRANCHID>', sLine) then
-          BranchID := InfLine(sLine);
-
         // conta
         if FindString('<ACCTID>', sLine) then
           AccountID := InfLine(sLine);
