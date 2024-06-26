@@ -4,7 +4,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, Mask,  DB, DBClient, StdCtrls, ExtCtrls, RxToolEdit;
+  Dialogs, Mask, ToolEdit, DB, DBClient, StdCtrls, ExtCtrls;
 
 type
   TForm1 = class(TForm)
@@ -51,7 +51,6 @@ begin
       for i := 0 to LerOFX.Count-1 do
       begin
         Memo1.Lines.Add('#         | '+IntToStr(i));
-        Memo1.Lines.Add('ID        | '+ LerOFX.Get(i).ID);
         Memo1.Lines.Add('Documento | '+ LerOFX.Get(i).Document);
         Memo1.Lines.Add('Data      | '+ DateToStr(LerOFX.Get(i).MovDate));
         Memo1.Lines.Add('Tipo      | '+ LerOFX.Get(i).MovType);
